@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0E1014">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:title" content="Próg demo aplikacji">
+<meta property="og:description" content="Klikalne demo: mieszkania na udziały. Dane i transakcje są symulowane.">
+<title>Próg demo aplikacji</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500..800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout idea: one-screen phone app. Header, one scrolling view, bottom tabs, bottom sheet for details. Single dark theme by choice. */
+:root {
+  color-scheme: dark;
+  --ink: #0E1014;
+  --panel: #171A21;
+  --panel-2: #1F232D;
+  --line: #2C313D;
+  --paper: #F4F1EA;
+  --muted: #A3A9B8;
+  --lok: #FF5A36;
+  --inv: #3DF2B4;
+  --mine: #FFD84A;
+  --down: #FF8FA3;
+  --river: #24405C;
+  --display: 'Bricolage Grotesque', 'Trebuchet MS', Arial, sans-serif;
+  --body: 'Figtree', 'Segoe UI', Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--paper); font-family: var(--body); font-size: 15px; line-height: 1.4; display: flex; justify-content: center; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--mine); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.app { position: relative; width: 100%; max-width: 560px; height: 100%; display: flex; flex-direction: column; overflow: hidden; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.top { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.logo { font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: -0.5px; }
+.demo { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--ink); background: var(--mine); padding: 3px 8px; border-radius: 99px; }
+.cash { margin-left: auto; text-align: right; }
+.cash small { display: block; font-size: 11px; color: var(--muted); }
+.cash b { font-family: var(--display); font-size: 17px; }
+
+main { flex: 1; min-height: 0; position: relative; }
+.view { position: absolute; inset: 0; overflow-y: auto; display: none; flex-direction: column; }
+.view.on { display: flex; }
+.pad { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--display); font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; text-wrap: balance; }
+h2 { font-family: var(--display); font-size: 18px; font-weight: 700; line-height: 1.2; }
+.muted { color: var(--muted); }
+.sm { font-size: 13px; }
+
+.tabs { display: flex; border-top: 1px solid var(--line); background: var(--panel); }
+.tabs a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 4px 11px; font-size: 11px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.tabs a.on { color: var(--inv); }
+.tabs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* map */
+.mapwrap { position: relative; flex: 1; min-height: 300px; background: #0A0C10; }
+#map { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#map:active { cursor: grabbing; }
+.cell { stroke: #0A0C10; stroke-width: 3; }
+.cell.has { cursor: pointer; }
+.dlabel { font-family: var(--body); font-size: 10.5px; font-weight: 600; fill: var(--muted); text-anchor: middle; pointer-events: none; }
+.dchg { font-family: var(--display); font-size: 14px; font-weight: 800; text-anchor: middle; pointer-events: none; }
+.pin { cursor: pointer; }
+.pin rect { fill: var(--inv); }
+.pin text { font-family: var(--body); font-size: 11.5px; font-weight: 700; fill: var(--ink); text-anchor: middle; pointer-events: none; }
+.pin circle { fill: var(--inv); stroke: var(--ink); stroke-width: 2; }
+.pin.mine rect, .pin.mine circle { fill: var(--mine); }
+.seg { position: absolute; top: 12px; left: 12px; display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 3px; }
+.seg button { border: 0; background: none; padding: 6px 14px; border-radius: 99px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--paper); color: var(--ink); }
+.zoom { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.zoom button { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line); padding: 8px 14px; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+
+/* lists */
+.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.row .grow { flex: 1; min-width: 0; }
+.row .name { font-weight: 600; }
+.row .right { text-align: right; white-space: nowrap; }
+.bar { display: flex; height: 6px; border-radius: 4px; overflow: hidden; margin-top: 7px; background: var(--inv); }
+.bar i { display: block; background: var(--lok); }
+.up { color: var(--inv); }
+.dn { color: var(--down); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.chip.on { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.kpi small { display: block; font-size: 12px; color: var(--muted); }
+.kpi b { font-family: var(--display); font-size: 20px; }
+.btn { border: 0; border-radius: 14px; padding: 13px 16px; font-weight: 700; background: var(--inv); color: var(--ink); }
+.btn.alt { background: var(--panel-2); color: var(--paper); border: 1px solid var(--line); }
+.btn.lok { background: var(--lok); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btnrow { display: flex; gap: 10px; }
+.btnrow .btn { flex: 1; }
+.log { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.log div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; font-size: 13px; border-top: 1px solid var(--line); }
+.log div:first-child { border-top: 0; }
+.note { font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--mine); padding: 2px 0 2px 10px; }
+
+/* sheet */
+.back { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow-y: auto; background: var(--panel); border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; display: none; flex-direction: column; gap: 14px; }
+.sheet > * { flex-shrink: 0; }
+.open .back { display: block; }
+.open .sheet { display: flex; }
+.close { margin-left: auto; width: 34px; height: 34px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel-2); font-size: 18px; line-height: 1; }
+.shead { display: flex; align-items: flex-start; gap: 10px; }
+.tiles { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+.tiles i { aspect-ratio: 1; border-radius: 6px; background: var(--inv); }
+.tiles i.l { background: var(--lok); }
+.tiles i.m { background: var(--mine); }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; font-size: 13px; }
+.facts span { color: var(--muted); display: block; font-size: 12px; }
+.facts b { font-size: 15px; }
+.spark { width: 100%; height: 64px; display: block; }
+.trade { background: var(--panel-2); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.qty { display: flex; align-items: center; gap: 8px; }
+.qty input { flex: 1; min-width: 0; text-align: center; background: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px; font-size: 18px; font-weight: 700; }
+.qty button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; }
+.sum { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.sum b { color: var(--paper); }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 76px; background: var(--paper); color: var(--ink); font-weight: 600; font-size: 14px; padding: 12px 14px; border-radius: 14px; display: none; }
+.toast.on { display: block; }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s ease-out; } @keyframes up { from { transform: translateY(24px); opacity: .6; } } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <span class="logo">Próg</span>
+    <span class="demo">Demo</span>
+    <div class="cash"><small>Wolne środki</small><b class="num" id="cash"></b></div>
+  </header>
+
+  <main>
+    <section class="view" id="v-mapa">
+      <div class="mapwrap">
+        <svg id="map" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Schematyczna mapa dzielnic Warszawy z mieszkaniami"></svg>
+        <div class="seg" role="group" aria-label="Tryb mapy">
+          <button id="m-flats" class="on" type="button">Mieszkania</button>
+          <button id="m-bask" type="button">Koszyki</button>
+        </div>
+        <div class="zoom">
+          <button id="z-in" type="button" aria-label="Przybliż">+</button>
+          <button id="z-out" type="button" aria-label="Oddal">−</button>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="view" id="v-rynek"><div class="pad" id="rynek"></div></section>
+    <section class="view" id="v-portfel"><div class="pad" id="portfel"></div></section>
+    <section class="view" id="v-lokator"><div class="pad" id="lokator"></div></section>
+  </main>
+
+  <nav class="tabs" aria-label="Sekcje">
+    <a href="#mapa" data-tab="mapa"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Mapa</a>
+    <a href="#rynek" data-tab="rynek"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M21 19H3"/></svg>Rynek</a>
+    <a href="#portfel" data-tab="portfel"><svg viewBox="0 0 24 24"><path d="M3 7h18v12H3zM3 7l2-3h14l2 3M16 13h2"/></svg>Portfel</a>
+    <a href="#lokator" data-tab="lokator"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>Lokator</a>
+  </nav>
+
+  <div class="back" id="back"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Szczegóły"></div>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+const FEE = 0.01, BUYOUT = 2.5, KEY = 'prog-demo-v1';
+const nf0 = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 });
+const nf2 = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const zl = n => nf0.format(Math.round(n)) + ' zł';
+const zl2 = n => nf2.format(n) + ' zł';
+const pct = (n, d = 1) => { const v = Math.abs(n * 100).toFixed(d); return (+v === 0 ? '' : n >= 0 ? '+' : '−') + v.replace('.', ',') + '%'; };
+const sgn = n => n >= 0 ? 'up' : 'dn';
+const $ = id => document.getElementById(id);
+
+// Districts: approximate centres (lat, lon). The map is schematic.
+const D = {
+  bem: ['Bemowo', 52.254, 20.913], bia: ['Białołęka', 52.320, 20.990], bie: ['Bielany', 52.290, 20.940],
+  mok: ['Mokotów', 52.195, 21.035], och: ['Ochota', 52.213, 20.980], ppd: ['Praga-Płd.', 52.240, 21.085],
+  ppn: ['Praga-Płn.', 52.262, 21.035], rem: ['Rembertów', 52.260, 21.165], sro: ['Śródmieście', 52.232, 21.015],
+  tar: ['Targówek', 52.285, 21.065], urs: ['Ursus', 52.195, 20.885], usn: ['Ursynów', 52.140, 21.045],
+  waw: ['Wawer', 52.200, 21.180], wes: ['Wesoła', 52.240, 21.230], wil: ['Wilanów', 52.160, 21.100],
+  wlo: ['Włochy', 52.185, 20.945], wol: ['Wola', 52.238, 20.960], zol: ['Żoliborz', 52.268, 20.985]
+};
+const BORDER = [[52.368,20.99],[52.355,21.08],[52.30,21.14],[52.275,21.22],[52.245,21.27],[52.21,21.265],[52.16,21.22],[52.115,21.16],[52.10,21.08],[52.105,21.02],[52.14,20.98],[52.15,20.92],[52.17,20.87],[52.20,20.855],[52.25,20.86],[52.285,20.89],[52.32,20.91],[52.35,20.94]];
+const RIVER = [[52.09,21.21],[52.16,21.14],[52.20,21.09],[52.235,21.04],[52.26,21.01],[52.29,20.98],[52.33,20.93],[52.38,20.86]];
+const P = (lat, lon) => [(lon - 20.84) * 0.613 / 0.29 * 1000 + 35, (52.38 - lat) / 0.29 * 1000];
+
+// Example flats (fictional). dx, dy offset the pin from the district centre, in map units.
+const SEED = [
+  ['Puławska, 2 pokoje', 'mok', 48, 860000, 50, 5.2, -22, -18],
+  ['Woronicza, 3 pokoje', 'mok', 67, 1240000, 60, 4.8, 24, 22],
+  ['Kasprzaka, 2 pokoje', 'wol', 44, 790000, 50, 5.4, -20, 16],
+  ['Skierniewicka, kawalerka', 'wol', 31, 615000, 35, 5.9, 22, -20],
+  ['Hoża, 2 pokoje', 'sro', 52, 1120000, 55, 4.6, 6, 14],
+  ['Grochowska, 3 pokoje', 'ppd', 63, 890000, 50, 5.3, 18, 8],
+  ['Okrzei, 2 pokoje', 'ppn', 46, 760000, 40, 5.6, 8, -10],
+  ['KEN, 3 pokoje', 'usn', 70, 1050000, 70, 4.9, -10, 4],
+  ['Marymoncka, 2 pokoje', 'bie', 49, 735000, 50, 5.5, 4, 14],
+  ['Sarmacka, 3 pokoje', 'wil', 78, 1380000, 65, 4.4, 6, -8],
+  ['Grójecka, 2 pokoje', 'och', 45, 780000, 45, 5.3, -8, 10],
+  ['Światowida, 3 pokoje', 'bia', 64, 720000, 50, 5.7, -6, 12]
+];
+
+let S;
+function rnd() { S.seed = (S.seed * 1664525 + 1013904223) >>> 0; return S.seed / 4294967296; }
+function randn() { return rnd() + rnd() + rnd() - 1.5; }
+function fresh() {
+  S = { seed: 20261117, month: 0, cash: 5500, hold: {}, bask: {}, log: [], tenant: { own: 50, cash: 60000 }, flats: [] };
+  SEED.forEach((s, i) => {
+    const hist = []; let p = 96 + rnd() * 5;
+    for (let m = 0; m < 12; m++) { p *= 1 + 0.003 + 0.01 * randn(); hist.push(p); }
+    S.flats.push({ id: i, name: s[0], d: s[1], area: s[2], val: s[3], shares: Math.round(s[3] / 100), ten: s[4], yld: s[5] / 100, dx: s[6], dy: s[7], prem: Math.max(-0.06, Math.min(0.08, p / 100 - 1)), hist, p0: p });
+  });
+  buy0('f', 0, 20); buy0('f', 4, 15); buy0('b', 'wol', 10);
+  S.log = [{ t: 'Portfel startowy demo', a: 0 }];
+}
+function buy0(type, key, q) { const h = type === 'f' ? S.hold : S.bask; h[key] = { q, cost: q * price(type, key) }; }
+function load() { try { const r = localStorage.getItem(KEY); if (r) { S = JSON.parse(r); if (!S.flats || !S.tenant) throw 0; return; } } catch (e) {} fresh(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+const nav = f => f.val / f.shares;
+const fprice = f => nav(f) * (1 + f.prem);
+const inD = d => S.flats.filter(f => d === 'all' || f.d === d);
+function price(type, key) { if (type === 'f') return fprice(S.flats[key]); const fs = inD(key); return fs.reduce((a, f) => a + fprice(f), 0) / fs.length; }
+const ref = f => f.hist[Math.max(0, f.hist.length - 13)];
+function bchg(d) { const fs = inD(d); return fs.reduce((a, f) => a + fprice(f) / ref(f), 0) / fs.length - 1; }
+function byld(d) { const fs = inD(d); return fs.reduce((a, f) => a + f.yld, 0) / fs.length; }
+const bname = d => d === 'all' ? 'Koszyk Warszawa' : 'Koszyk ' + D[d][0];
+const fchg = f => fprice(f) / ref(f) - 1;
+function monthly() { let m = 0; for (const k in S.hold) { const f = S.flats[k]; m += S.hold[k].q * nav(f) * f.yld / 12; } for (const d in S.bask) m += S.bask[d].q * price('b', d) * byld(d) / 12; return m; }
+function worth() { let v = 0; for (const k in S.hold) v += S.hold[k].q * price('f', k); for (const d in S.bask) v += S.bask[d].q * price('b', d); return v; }
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
+function logit(t, a) { S.log.unshift({ t, a }); S.log = S.log.slice(0, 14); }
+
+function trade(type, key, side, n) {
+  n = Math.floor(n); if (!(n > 0)) return toast('Podaj liczbę większą od zera.');
+  const h = type === 'f' ? S.hold : S.bask, p = price(type, key), gross = n * p, fee = gross * FEE;
+  const label = type === 'f' ? S.flats[key].name : bname(key), unit = type === 'f' ? 'udz.' : 'jedn.';
+  if (side === 'buy') {
+    if (gross + fee > S.cash) return toast('Za mało wolnych środków. Zmniejsz liczbę albo sprzedaj coś z portfela.');
+    S.cash -= gross + fee; const cur = h[key] || { q: 0, cost: 0 }; cur.q += n; cur.cost += gross + fee; h[key] = cur;
+    logit('Kupno ' + n + ' ' + unit + ' · ' + label, -(gross + fee));
+  } else {
+    const cur = h[key]; if (!cur || n > cur.q + 1e-9) return toast('Nie masz tylu jednostek do sprzedania.');
+    S.cash += gross - fee; cur.cost -= cur.cost * n / cur.q; cur.q -= n; if (cur.q < 0.005) delete h[key];
+    logit('Sprzedaż ' + n + ' ' + unit + ' · ' + label, gross - fee);
+  }
+  save(); renderAll(); toast(side === 'buy' ? 'Kupiono. Transakcja jest symulowana.' : 'Sprzedano. Transakcja jest symulowana.');
+  return true;
+}
+
+function step(months) {
+  let rent = 0, red = 0;
+  for (let i = 0; i < months; i++) {
+    S.month++;
+    S.flats.forEach(f => { f.val *= 1 + 0.003 + 0.008 * randn(); f.prem = Math.max(-0.06, Math.min(0.08, f.prem + 0.012 * randn())); f.hist.push(fprice(f)); if (f.hist.length > 36) f.hist.shift(); });
+    rent += monthly();
+    if (S.month % 12 === 0) S.flats.forEach(f => {
+      if (f.ten >= 100) return; const stepPct = Math.min(BUYOUT, 100 - f.ten), frac = stepPct / (100 - f.ten), h = S.hold[f.id];
+      if (h) { const q = h.q * frac; red += q * nav(f); h.cost -= h.cost * frac; h.q -= q; if (h.q < 0.005) delete S.hold[f.id]; }
+      f.ten += stepPct;
+    });
+    S.tenant.cash += 3000;
+  }
+  S.cash += rent + red;
+  if (rent > 0) logit('Wypłata z czynszów (' + months + ' mies.)', rent);
+  if (red > 0) logit('Wykup udziałów przez lokatorów', red);
+  save(); renderAll();
+  toast('Minęło: ' + months + ' mies. Wypłaty: ' + zl(rent) + (red > 0 ? ', wykupy: ' + zl(red) : '') + '.');
+}
+
+/* ---------- map ---------- */
+const svg = $('map'), NS = 'http://www.w3.org/2000/svg';
+let T = { x: -94, y: -215, k: 1.35 }, mode = 'flats';
+const el = (n, a, parent) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (parent) parent.appendChild(e); return e; };
+function clip(poly, f) { const out = []; for (let a = 0; a < poly.length; a++) { const A = poly[a], B = poly[(a + 1) % poly.length], fa = f(A), fb = f(B); if (fa <= 0) out.push(A); if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { const t = fa / (fa - fb); out.push([A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1])]); } } return out; }
+const keys = Object.keys(D), C = keys.map(k => P(D[k][1], D[k][2]));
+function cellOf(i) { let poly = [[-200, -200], [1200, -200], [1200, 1200], [-200, 1200]]; const p = C[i]; C.forEach((q, j) => { if (j === i) return; const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, nx = q[0] - p[0], ny = q[1] - p[1]; poly = clip(poly, pt => (pt[0] - mx) * nx + (pt[1] - my) * ny); }); return poly; }
+const pts = a => a.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+let vp, pinLayer, labLayer;
+function buildMap() {
+  svg.innerHTML = '';
+  const defs = el('defs', {}, svg), cp = el('clipPath', { id: 'city' }, defs);
+  el('polygon', { points: pts(BORDER.map(b => P(b[0], b[1]))) }, cp);
+  vp = el('g', {}, svg);
+  const land = el('g', { 'clip-path': 'url(#city)' }, vp);
+  keys.forEach((k, i) => el('polygon', { points: pts(cellOf(i)), class: 'cell', 'data-d': k, id: 'c-' + k }, land));
+  el('polyline', { points: pts(RIVER.map(r => P(r[0], r[1]))), fill: 'none', stroke: 'var(--river)', 'stroke-width': 20, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'pointer-events': 'none' }, land);
+  el('polygon', { points: pts(BORDER.map(b => P(b[0], b[1]))), fill: 'none', stroke: 'var(--line)', 'stroke-width': 3, 'pointer-events': 'none' }, vp);
+  labLayer = el('g', {}, vp); pinLayer = el('g', {}, vp);
+  paintMap();
+}
+function paintMap() {
+  const a = svg.getScreenCTM() ? svg.getScreenCTM().a : 0.4, u = 1 / (a || 0.4) / T.k;
+  vp.setAttribute('transform', 'translate(' + T.x + ' ' + T.y + ') scale(' + T.k + ')');
+  labLayer.innerHTML = ''; pinLayer.innerHTML = '';
+  keys.forEach((k, i) => {
+    const has = inD(k).length > 0, c = $('c-' + k), ch = has ? bchg(k) : 0;
+    c.setAttribute('class', 'cell' + (has ? ' has' : ''));
+    c.setAttribute('fill', !has ? '#151821' : mode === 'bask' ? (ch >= 0 ? 'rgba(61,242,180,' + Math.min(0.55, 0.2 + ch * 4) + ')' : 'rgba(255,143,163,' + Math.min(0.55, 0.2 - ch * 4) + ')') : '#1D222C');
+    const g = el('g', { transform: 'translate(' + C[i][0] + ' ' + (C[i][1] + (mode === 'flats' && has ? 34 * u : 0)) + ') scale(' + u + ')' }, labLayer);
+    if (mode === 'bask' && has) { const t = el('text', { class: 'dchg', y: -4, fill: ch >= 0 ? 'var(--inv)' : 'var(--down)' }, g); t.textContent = pct(ch); }
+    const t2 = el('text', { class: 'dlabel', y: mode === 'bask' && has ? 12 : 4 }, g); t2.textContent = D[k][0];
+  });
+  if (mode === 'flats') S.flats.forEach(f => {
+    const c = P(D[f.d][1], D[f.d][2]), g = el('g', { class: 'pin' + (S.hold[f.id] ? ' mine' : ''), 'data-flat': f.id, transform: 'translate(' + (c[0] + f.dx) + ' ' + (c[1] + f.dy) + ') scale(' + u + ')' }, pinLayer);
+    el('rect', { x: -34, y: -31, width: 68, height: 22, rx: 11 }, g);
+    const t = el('text', { y: -15.5 }, g); t.textContent = f.val >= 1e6 ? (f.val / 1e6).toFixed(2).replace('.', ',') + ' mln' : Math.round(f.val / 1000) + ' tys.';
+    el('circle', { r: 4.5 }, g);
+  });
+  $('legend').innerHTML = mode === 'flats'
+    ? '<span><i class="dot" style="background:var(--inv)"></i>mieszkanie z udziałami</span><span><i class="dot" style="background:var(--mine)"></i>masz tu udziały</span><span>Cena na pinezce to wycena lokalu. Mapa jest schematyczna.</span>'
+    : '<span><i class="dot" style="background:var(--inv)"></i>koszyk rośnie</span><span><i class="dot" style="background:var(--down)"></i>koszyk spada</span><span>Zmiana ceny w 12 miesiącach demo. Dotknij dzielnicy.</span>';
+}
+function clampT() { T.k = Math.max(1, Math.min(6, T.k)); T.x = Math.max(1000 * (1 - T.k), Math.min(0, T.x)); T.y = Math.max(1000 * (1 - T.k), Math.min(0, T.y)); }
+function toSvg(cx, cy) { const p = svg.createSVGPoint(); p.x = cx; p.y = cy; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function zoomAt(sx, sy, k) { k = Math.max(1, Math.min(6, k)); T.x = sx - (sx - T.x) * (k / T.k); T.y = sy - (sy - T.y) * (k / T.k); T.k = k; clampT(); paintMap(); }
+const ptrs = new Map(); let moved = 0, pinch = 0, downEl = null;
+svg.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); if (ptrs.size === 1) { moved = 0; downEl = e.target; } try { svg.setPointerCapture(e.pointerId); } catch (x) {} });
+svg.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return; const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 1) { const a = toSvg(prev[0], prev[1]), b = toSvg(e.clientX, e.clientY); T.x += b.x - a.x; T.y += b.y - a.y; moved += Math.hypot(e.clientX - prev[0], e.clientY - prev[1]); clampT(); if (moved > 3) paintMap(); }
+  else if (ptrs.size === 2) { const v = [...ptrs.values()], d = Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1]); if (pinch) { const c = toSvg((v[0][0] + v[1][0]) / 2, (v[0][1] + v[1][1]) / 2); zoomAt(c.x, c.y, T.k * d / pinch); } pinch = d; moved += 10; }
+});
+function ptrEnd(e) {
+  if (!ptrs.has(e.pointerId)) return; ptrs.delete(e.pointerId); pinch = 0;
+  if (ptrs.size === 0 && moved < 6 && downEl && e.type === 'pointerup') { const pin = downEl.closest('[data-flat]'), cell = downEl.closest('[data-d]'); if (pin) openFlat(+pin.getAttribute('data-flat')); else if (cell && inD(cell.getAttribute('data-d')).length) openBasket(cell.getAttribute('data-d')); }
+}
+svg.addEventListener('pointerup', ptrEnd); svg.addEventListener('pointercancel', ptrEnd);
+svg.addEventListener('wheel', e => { e.preventDefault(); const c = toSvg(e.clientX, e.clientY); zoomAt(c.x, c.y, T.k * (e.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
+$('z-in').onclick = () => zoomAt(500, 500, T.k * 1.4);
+$('z-out').onclick = () => zoomAt(500, 500, T.k / 1.4);
+function setMode(m) { mode = m; $('m-flats').classList.toggle('on', m === 'flats'); $('m-bask').classList.toggle('on', m === 'bask'); paintMap(); }
+$('m-flats').onclick = () => setMode('flats'); $('m-bask').onclick = () => setMode('bask');
+window.addEventListener('resize', () => { if (location.hash === '#mapa' || !location.hash) paintMap(); });
+
+/* ---------- lists ---------- */
+let mtab = 'flats', msort = 'yld';
+function flatRow(f) { const c = fchg(f); return '<button class="row" type="button" data-open-flat="' + f.id + '"><div class="grow"><div class="name">' + f.name + '</div><div class="sm muted">' + D[f.d][0] + ' · ' + f.area + ' m² · czynsz ' + (f.yld * 100).toFixed(1).replace('.', ',') + '% rocznie</div><div class="bar" title="Udział lokatora"><i style="width:' + f.ten + '%"></i></div></div><div class="right"><b class="num">' + zl2(fprice(f)) + '</b><div class="sm num ' + sgn(c) + '">' + (c >= 0 ? '▲ ' : '▼ ') + pct(c) + '</div></div></button>'; }
+function baskRow(d) { const c = bchg(d), n = inD(d).length; return '<button class="row" type="button" data-open-bask="' + d + '"><div class="grow"><div class="name">' + bname(d) + '</div><div class="sm muted">' + n + (n === 1 ? ' mieszkanie' : n < 5 ? ' mieszkania' : ' mieszkań') + ' · czynsz ' + (byld(d) * 100).toFixed(1).replace('.', ',') + '% rocznie</div></div><div class="right"><b class="num">' + zl2(price('b', d)) + '</b><div class="sm num ' + sgn(c) + '">' + (c >= 0 ? '▲ ' : '▼ ') + pct(c) + '</div></div></button>'; }
+const baskKeys = () => ['all'].concat(keys.filter(k => inD(k).length));
+function renderMarket() {
+  let h = '<h1>Rynek</h1><div class="chips"><button class="chip ' + (mtab === 'flats' ? 'on' : '') + '" data-mtab="flats" type="button">Mieszkania</button><button class="chip ' + (mtab === 'bask' ? 'on' : '') + '" data-mtab="bask" type="button">Koszyki</button></div>';
+  if (mtab === 'flats') {
+    h += '<div class="chips"><button class="chip ' + (msort === 'yld' ? 'on' : '') + '" data-msort="yld" type="button">Najwyższy czynsz</button><button class="chip ' + (msort === 'chg' ? 'on' : '') + '" data-msort="chg" type="button">Największy wzrost</button><button class="chip ' + (msort === 'ten' ? 'on' : '') + '" data-msort="ten" type="button">Najbliżej wykupu</button></div>';
+    const fs = S.flats.slice().sort((a, b) => msort === 'yld' ? b.yld - a.yld : msort === 'chg' ? fchg(b) - fchg(a) : b.ten - a.ten);
+    h += fs.map(flatRow).join('') + '<p class="sm muted">Pasek pod nazwą: pomarańczowa część należy do lokatora, zielona do inwestorów. Cena dotyczy jednego udziału.</p>';
+  } else h += baskKeys().map(baskRow).join('') + '<p class="sm muted">Jednostka koszyka odpowiada średniej cenie udziału w mieszkaniach z danego obszaru.</p>';
+  $('rynek').innerHTML = h;
+}
+function renderPortfolio() {
+  const w = worth(); let cost = 0; for (const k in S.hold) cost += S.hold[k].cost; for (const d in S.bask) cost += S.bask[d].cost; const pl = w - cost;
+  let h = '<h1>Portfel</h1><div class="kpis"><div class="kpi"><small>Wartość udziałów</small><b class="num">' + zl(w) + '</b><div class="sm num ' + sgn(pl) + '">' + (pl >= 0 ? '+' : '−') + zl(Math.abs(pl)) + ' od zakupu</div></div><div class="kpi"><small>Szacowana wypłata miesięczna</small><b class="num">' + zl2(monthly()) + '</b><div class="sm muted">z czynszów lokatorów</div></div></div>';
+  h += '<div class="btnrow"><button class="btn" id="s1" type="button">Symuluj miesiąc</button><button class="btn alt" id="s12" type="button">Symuluj rok</button></div><p class="sm muted">Miesiąc demo: ' + S.month + '. Symulacja wypłaca czynsze, zmienia ceny i raz w roku wykonuje wykup 2,5% przez lokatorów.</p>';
+  h += '<h2>Twoje pozycje</h2>'; let rows = '';
+  for (const k in S.hold) { const f = S.flats[k], q = S.hold[k], v = q.q * fprice(f), d = v - q.cost; rows += '<button class="row" type="button" data-open-flat="' + k + '"><div class="grow"><div class="name">' + f.name + '</div><div class="sm muted num">' + nf2.format(q.q) + ' udz. · ' + D[f.d][0] + '</div></div><div class="right"><b class="num">' + zl(v) + '</b><div class="sm num ' + sgn(d) + '">' + (d >= 0 ? '+' : '−') + zl(Math.abs(d)) + '</div></div></button>'; }
+  for (const b in S.bask) { const q = S.bask[b], v = q.q * price('b', b), d = v - q.cost; rows += '<button class="row" type="button" data-open-bask="' + b + '"><div class="grow"><div class="name">' + bname(b) + '</div><div class="sm muted num">' + nf2.format(q.q) + ' jedn.</div></div><div class="right"><b class="num">' + zl(v) + '</b><div class="sm num ' + sgn(d) + '">' + (d >= 0 ? '+' : '−') + zl(Math.abs(d)) + '</div></div></button>'; }
+  h += rows || '<p class="muted">Nie masz jeszcze udziałów. Wybierz mieszkanie na mapie albo w zakładce Rynek.</p>';
+  h += '<h2>Historia</h2><div class="log">' + S.log.map(l => '<div><span>' + l.t + '</span><b class="num ' + (l.a ? sgn(l.a) : '') + '">' + (l.a ? (l.a > 0 ? '+' : '−') + zl(Math.abs(l.a)) : '') + '</b></div>').join('') + '</div>';
+  h += '<button class="btn alt" id="reset" type="button">Zacznij demo od nowa</button>';
+  $('portfel').innerHTML = h;
+  $('s1').onclick = () => step(1); $('s12').onclick = () => step(12); $('reset').onclick = () => { fresh(); save(); renderAll(); toast('Demo wróciło do stanu początkowego.'); };
+}
+function tiles(ten, mine) { const l = Math.round(ten / 2.5), m = mine > 0 ? Math.max(1, Math.round(mine / 2.5)) : 0; let h = ''; for (let i = 0; i < 40; i++) h += '<i class="' + (i < l ? 'l' : i >= 40 - m ? 'm' : '') + '"></i>'; return '<div class="tiles" aria-hidden="true">' + h + '</div>'; }
+function renderTenant() {
+  const f = { name: 'Racławicka, 2 pokoje', area: 50, val: 900000, yld: 0.052 }, t = S.tenant, rent = (100 - t.own) / 100 * f.val * f.yld / 12, cost = BUYOUT / 100 * f.val, done = t.own >= 100;
+  let h = '<h1>Twoje mieszkanie</h1><p class="muted">Widok lokatora, osobny przykład. ' + f.name + ', Mokotów, ' + f.area + ' m².</p>' + tiles(t.own, 0);
+  h += '<div class="kpis"><div class="kpi"><small>Masz</small><b class="num">' + t.own.toFixed(1).replace('.', ',') + '%</b><div class="sm muted">' + Math.round(t.own / 2.5) + ' z 40 kafelków</div></div><div class="kpi"><small>Czynsz dla inwestorów</small><b class="num">' + zl(rent) + '</b><div class="sm muted">miesięcznie</div></div><div class="kpi"><small>Wycena mieszkania</small><b class="num">' + zl(f.val) + '</b><div class="sm muted">niezależna, demo</div></div><div class="kpi"><small>Twoje oszczędności</small><b class="num">' + zl(t.cash) + '</b><div class="sm muted">+3 000 zł co miesiąc demo</div></div></div>';
+  h += done ? '<p class="note">Mieszkanie jest w całości Twoje. Nie płacisz już czynszu inwestorom.</p>' : '<button class="btn lok" id="buytile" type="button"' + (t.cash < cost ? ' disabled' : '') + '>Wykup kafelek (2,5%) za ' + zl(cost) + '</button><p class="sm muted">Każdy wykupiony kafelek obniża czynsz o około ' + zl(BUYOUT / 100 * f.val * f.yld / 12) + ' miesięcznie. Cena wykupu wynika z wyceny, nie z handlu w aplikacji.' + (t.cash < cost ? ' Na kolejny kafelek brakuje ' + zl(cost - t.cash) + '. Użyj symulacji czasu w zakładce Portfel.' : '') + '</p>';
+  $('lokator').innerHTML = h;
+  if (!done) $('buytile').onclick = () => { if (t.cash < cost) return; t.cash -= cost; t.own = Math.min(100, t.own + BUYOUT); save(); renderAll(); toast('Wykupiono kafelek. Masz teraz ' + t.own.toFixed(1).replace('.', ',') + '%.'); };
+}
+
+/* ---------- sheet ---------- */
+let cur = null, side = 'buy', qty = 10;
+function spark(hist) { const w = 300, h = 64, mn = Math.min(...hist), mx = Math.max(...hist), r = mx - mn || 1; const p = hist.map((v, i) => [(i / (hist.length - 1)) * w, h - 6 - (v - mn) / r * (h - 12)]); const up = hist[hist.length - 1] >= hist[0], col = up ? 'var(--inv)' : 'var(--down)'; return '<svg class="spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,' + h + ' ' + pts(p) + ' ' + w + ',' + h + '" fill="' + col + '" opacity=".12"/><polyline points="' + pts(p) + '" fill="none" stroke="' + col + '" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>'; }
+function tradeBox() {
+  const type = cur.type, key = cur.key, p = price(type, key), h = (type === 'f' ? S.hold : S.bask)[key], have = h ? h.q : 0, gross = qty * p, fee = gross * FEE, unit = type === 'f' ? 'udziałów' : 'jednostek';
+  return '<div class="trade"><div class="chips"><button class="chip ' + (side === 'buy' ? 'on' : '') + '" data-side="buy" type="button">Kup</button><button class="chip ' + (side === 'sell' ? 'on' : '') + '" data-side="sell" type="button">Sprzedaj</button><span class="sm muted" style="margin-left:auto;align-self:center">Masz: <b class="num">' + nf2.format(have) + '</b></span></div>'
+    + '<div class="qty"><button type="button" data-q="-1" aria-label="Mniej">−</button><input id="qty" type="number" inputmode="numeric" min="1" step="1" value="' + qty + '" aria-label="Liczba ' + unit + '"><button type="button" data-q="1" aria-label="Więcej">+</button></div>'
+    + '<div class="sum"><span>Cena za sztukę</span><b class="num">' + zl2(p) + '</b></div><div class="sum"><span>Prowizja demo 1%</span><b class="num" id="sum-fee">' + zl2(fee) + '</b></div><div class="sum"><span>' + (side === 'buy' ? 'Zapłacisz' : 'Otrzymasz') + '</span><b class="num" id="sum-total">' + zl2(side === 'buy' ? gross + fee : gross - fee) + '</b></div>'
+    + '<button class="btn' + (side === 'sell' ? ' lok' : '') + '" id="go" type="button">' + (side === 'buy' ? 'Kup ' : 'Sprzedaj ') + qty + ' ' + unit + '</button></div>';
+}
+function updateSums() {
+  if (!cur) return; const p = price(cur.type, cur.key), gross = qty * p, fee = gross * FEE;
+  $('sum-fee').textContent = zl2(fee); $('sum-total').textContent = zl2(side === 'buy' ? gross + fee : gross - fee);
+  $('go').textContent = (side === 'buy' ? 'Kup ' : 'Sprzedaj ') + qty + ' ' + (cur.type === 'f' ? 'udziałów' : 'jednostek');
+}
+function renderSheet() {
+  if (!cur) return; let h = '';
+  if (cur.type === 'f') {
+    const f = S.flats[cur.key], my = S.hold[f.id], myPct = my ? my.q / f.shares * 100 : 0, c = fchg(f);
+    h = '<div class="shead"><div><h1>' + f.name + '</h1><p class="muted">' + D[f.d][0] + ' · ' + f.area + ' m² · przykład</p></div><button class="close" type="button" data-close aria-label="Zamknij">×</button></div>' + tiles(f.ten, myPct)
+      + '<p class="sm muted"><i class="dot" style="background:var(--lok)"></i>lokator ' + f.ten.toFixed(1).replace('.', ',') + '% <i class="dot" style="background:var(--inv);margin-left:10px"></i>inwestorzy <i class="dot" style="background:var(--mine);margin-left:10px"></i>Ty ' + myPct.toFixed(2).replace('.', ',') + '%</p>'
+      + spark(f.hist) + '<div class="facts"><div><span>Cena udziału w aplikacji</span><b class="num">' + zl2(fprice(f)) + ' <span class="' + sgn(c) + '" style="display:inline">' + pct(c) + '</span></b></div><div><span>Wycena udziału</span><b class="num">' + zl2(nav(f)) + '</b></div><div><span>Wycena mieszkania</span><b class="num">' + zl(f.val) + '</b></div><div><span>Czynsz dla inwestorów</span><b class="num">' + (f.yld * 100).toFixed(1).replace('.', ',') + '% rocznie</b></div></div>'
+      + '<p class="note">Lokator wykupuje udziały po wycenie. Ty handlujesz z innymi inwestorami po cenie z aplikacji, która teraz jest ' + (f.prem >= 0 ? 'o ' + (f.prem * 100).toFixed(1).replace('.', ',') + '% wyższa' : 'o ' + (-f.prem * 100).toFixed(1).replace('.', ',') + '% niższa') + ' od wyceny.</p>' + tradeBox();
+  } else {
+    const d = cur.key, c = bchg(d);
+    h = '<div class="shead"><div><h1>' + bname(d) + '</h1><p class="muted">Jednostka koszyka · przykład</p></div><button class="close" type="button" data-close aria-label="Zamknij">×</button></div><div class="facts"><div><span>Cena jednostki</span><b class="num">' + zl2(price('b', d)) + ' <span class="' + sgn(c) + '" style="display:inline">' + pct(c) + '</span></b></div><div><span>Czynsz dla inwestorów</span><b class="num">' + (byld(d) * 100).toFixed(1).replace('.', ',') + '% rocznie</b></div></div><h2>Mieszkania w koszyku</h2>' + inD(d).map(flatRow).join('') + tradeBox();
+  }
+  $('sheet').innerHTML = h; $('sheet').scrollTop = renderSheet.keep || 0; renderSheet.keep = 0;
+}
+function openFlat(id) { cur = { type: 'f', key: id }; side = 'buy'; qty = 10; $('app').classList.add('open'); renderSheet(); }
+function openBasket(d) { cur = { type: 'b', key: d }; side = 'buy'; qty = 10; $('app').classList.add('open'); renderSheet(); }
+function closeSheet() { cur = null; $('app').classList.remove('open'); }
+$('back').onclick = closeSheet;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+$('sheet').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.hasAttribute('data-close')) return closeSheet();
+  if (t.dataset.side) { side = t.dataset.side; renderSheet.keep = $('sheet').scrollTop; return renderSheet(); }
+  if (t.dataset.q) { qty = Math.max(1, qty + (+t.dataset.q)); $('qty').value = qty; return updateSums(); }
+  if (t.id === 'go') { renderSheet.keep = $('sheet').scrollTop; return trade(cur.type, cur.key, side, qty); }
+  if (t.dataset.openFlat) return openFlat(+t.dataset.openFlat);
+});
+$('sheet').addEventListener('input', e => { if (e.target.id === 'qty') { qty = Math.max(1, Math.floor(+e.target.value || 1)); updateSums(); } });
+document.querySelector('main').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.openFlat) openFlat(+t.dataset.openFlat);
+  else if (t.dataset.openBask) openBasket(t.dataset.openBask);
+  else if (t.dataset.mtab) { mtab = t.dataset.mtab; renderMarket(); }
+  else if (t.dataset.msort) { msort = t.dataset.msort; renderMarket(); }
+});
+
+/* ---------- shell ---------- */
+function renderAll() { $('cash').textContent = zl(S.cash); renderMarket(); renderPortfolio(); renderTenant(); if (vp) paintMap(); renderSheet(); }
+function route() {
+  const name = ['mapa', 'rynek', 'portfel', 'lokator'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'mapa';
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + name));
+  document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === name));
+  closeSheet(); if (name === 'mapa') requestAnimationFrame(paintMap);
+}
+load(); route(); buildMap(); renderAll();
+window.addEventListener('hashchange', route);
+</script>
+</body>
+</html>

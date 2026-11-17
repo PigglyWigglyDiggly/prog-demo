@@ -1,0 +1,13 @@
+# Próg: klikalne demo aplikacji na Render (render.com) jako strona statyczna.
+# Dane i transakcje w demo są symulowane. Strona nie ma hasła i nie jest indeksowana (noindex).
+services:
+  - type: web
+    name: prog-demo
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: ./public
+    autoDeployTrigger: commit
+    headers:
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
